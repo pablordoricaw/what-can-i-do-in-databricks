@@ -113,6 +113,26 @@ def hash_value(value: str) -> str:
     return f"sha256:{digest}"
 
 
+def detect_spark() -> Any | None:
+    candidate = globals().get("spark")
+    if candidate is not None:
+        return candidate
+    try:
+        from IPython import get_ipython
+
+        shell = get_ipython()
+        if shell is not None and shell.user_ns.get("spark") is not None:
+            return shell.user_ns["spark"]
+    except (ImportError, AttributeError):
+        pass
+    try:
+        from pyspark.sql import SparkSession
+
+        return SparkSession.getActiveSession()
+    except (ImportError, RuntimeError):
+        return None
+
+
 def sql_identifier(value: str) -> str:
     return f"`{value.replace('`', '``')}`"
 
@@ -156,7 +176,7 @@ class AccessCollector:
         self.group_method = "unavailable"
         self.warehouses: list[dict[str, Any]] | None = None
         self.sql_warehouse_id: str | None = None
-        self.spark = globals().get("spark")
+        self.spark = detect_spark()
         self.report_dir: Path | None = None
         self.workspace_id = self._workspace_id()
         self.email_pattern = EMAIL

@@ -49,6 +49,8 @@ If Genie Code reports that `scripts/collect_my_access.py` is missing even though
 
 The skill can fall back to the collector in the registered Git folder when Genie Code's packaged skill-resource mount omits it. It must use that source file rather than recreating the collector.
 
+On workspace notebook compute, shell subprocesses might not inherit notebook authentication. If `uv` cannot resolve dependencies or the shell cannot authenticate, the skill runs the same collector inside the notebook Python process with the preinstalled SDK. This preserves notebook authentication and allows the collector to use the active Spark session for SQL probes.
+
 ## Run the collector
 
 From the skill directory, verify `uv` and run:

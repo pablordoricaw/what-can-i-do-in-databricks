@@ -32,6 +32,8 @@ The backup installation is the repository's `install.py` notebook. Run it as the
 
 If a Git-folder-installed skill reports that its collector is missing, pull the latest `main`, verify `scripts/collect_my_access.py` and `scripts/reporting.py` in the workspace browser, and start a new Genie Code chat. The skill is instructed to run the source from the registered Git folder if its packaged resource mount omits the script.
 
+If `uv` cannot resolve dependencies or a shell subprocess cannot inherit notebook authentication, the skill uses the runtime's preinstalled SDK and runs the collector in the notebook Python process. The collector then discovers the notebook's active Spark session for Unity Catalog and other SQL probes.
+
 ## Genie Code CLI
 
 Copy or link the skill folder into either supported location:

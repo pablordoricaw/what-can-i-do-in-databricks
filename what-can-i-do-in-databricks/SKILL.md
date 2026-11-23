@@ -11,7 +11,7 @@ Collect evidence about the current user's effective access without changing work
 
 1. Run `uv --version` before doing anything else.
 2. If `uv` is missing outside a Databricks workspace runtime, stop. Show the official installation instructions at <https://docs.astral.sh/uv/getting-started/installation/>. Never use `pip`, `%pip`, or a requirements file.
-3. In workspace Genie Code on notebook or serverless compute where `uv` is unavailable, use the already-installed `databricks-sdk` without installing anything. Run the script with that Python runtime and tell the user the report will record `preinstalled SDK`.
+3. In workspace Genie Code on notebook or serverless compute, try `uv` first. If `uv` cannot resolve the locked dependency, or a shell subprocess cannot inherit the notebook's Databricks authentication, use the already-installed `databricks-sdk` in the notebook process without installing anything. This fallback is allowed even when the `uv` binary exists. Tell the user the report will record `preinstalled SDK`.
 4. Confirm the output location and whether default redaction is enabled. Recommend leaving `--redact` on. The default is the current workspace home folder in a Databricks runtime and the current local directory in Genie Code CLI.
 5. Run the provided collector instead of improvising API or SQL calls:
 
@@ -21,7 +21,7 @@ Collect evidence about the current user's effective access without changing work
 
    Resolve this path relative to the skill first. If the skill resource mount does not contain the script, do not conclude that the registered Git folder omitted it. Locate the registered workspace folder that contains this skill's `SKILL.md`, then use its `what-can-i-do-in-databricks/scripts/collect_my_access.py` file directly. A typical path is `/Workspace/Users/<email>/what-can-i-do-in-databricks/what-can-i-do-in-databricks/scripts/collect_my_access.py`. If the registered folder cannot be determined safely, ask the user for its path. Never reconstruct or improvise the collector.
 
-   In the workspace-only fallback, execute the resolved `collect_my_access.py` with the preinstalled Python environment and the same arguments. Do not install dependencies.
+   In the workspace-only fallback, execute the resolved `collect_my_access.py` in the notebook's Python process with the same arguments so it inherits notebook authentication and the active Spark session. Do not launch it as a shell subprocess, and do not install dependencies. The collector detects Spark from injected globals, the IPython user namespace, or the active `SparkSession`.
 6. Use `--sections` for a narrower run and `--max-objects` or `--max-depth` to bound discovery. Do not add mutating probes.
 
 ## Present the result

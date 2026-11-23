@@ -123,6 +123,17 @@ def _coverage(collector: Any, section: str) -> str:
 
 def _notable_findings(collector: Any) -> list[str]:
     findings: list[str] = []
+    admin_groups = sorted(
+        group
+        for group in collector.groups
+        if group.casefold() in {"admins", "account admins"}
+    )
+    if admin_groups:
+        findings.append(
+            "The caller belongs to an admin-signaling group: "
+            + ", ".join(admin_groups)
+            + ". This run is not a non-admin baseline."
+        )
     all_privileges = [
         row
         for row in collector.effective_access
@@ -211,7 +222,7 @@ def _summary_markdown(collector: Any) -> str:
             "",
             "## What this report can't see",
             "",
-            "This is a caller-scoped, non-admin report. It cannot prove that a hidden object, grant, group, product, or account-level setting does not exist. Results can omit nested or inherited groups, objects lacking browse permissions, grants requiring `MANAGE` or `READ METADATA`, other users' credentials, account-console configuration, and permissions that a product does not expose through its list or Permissions APIs. A successful list call proves reachability, not create or manage authority. A denied or unsupported probe is retained as evidence rather than treated as a failed run.",
+            "This is a caller-scoped report designed for non-admin users. If an admin-signaling group appears in the findings, the results reflect that elevated identity and are not a non-admin baseline. The report cannot prove that a hidden object, grant, group, product, or account-level setting does not exist. Results can omit nested or inherited groups, objects lacking browse permissions, grants requiring `MANAGE` or `READ METADATA`, other users' credentials, account-console configuration, and permissions that a product does not expose through its list or Permissions APIs. A successful list call proves reachability, not create or manage authority. A denied or unsupported probe is retained as evidence rather than treated as a failed run.",
             "",
             "Review the report and ZIP before sharing them outside your organization.",
             "",
