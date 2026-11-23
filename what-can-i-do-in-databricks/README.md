@@ -30,6 +30,8 @@ Users can register multiple skill folders. Adding this repository does not repla
 
 The backup installation is the repository's `install.py` notebook. Run it as the intended user on serverless notebook compute with environment version 5 or later. It copies the skill to `/Users/<email>/.assistant/skills/what-can-i-do-in-databricks/`. Run it again after pulling updates to refresh the personal copy.
 
+If a Git-folder-installed skill reports that its collector is missing, pull the latest `main`, verify `scripts/collect_my_access.py` and `scripts/reporting.py` in the workspace browser, and start a new Genie Code chat. The skill is instructed to run the source from the registered Git folder if its packaged resource mount omits the script.
+
 ## Genie Code CLI
 
 Copy or link the skill folder into either supported location:

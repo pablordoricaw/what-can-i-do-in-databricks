@@ -19,7 +19,9 @@ Collect evidence about the current user's effective access without changing work
    uv run --script scripts/collect_my_access.py --output <path>
    ```
 
-   In the workspace-only fallback, execute `scripts/collect_my_access.py` with the preinstalled Python environment and the same arguments. Do not install dependencies.
+   Resolve this path relative to the skill first. If the skill resource mount does not contain the script, do not conclude that the registered Git folder omitted it. Locate the registered workspace folder that contains this skill's `SKILL.md`, then use its `what-can-i-do-in-databricks/scripts/collect_my_access.py` file directly. A typical path is `/Workspace/Users/<email>/what-can-i-do-in-databricks/what-can-i-do-in-databricks/scripts/collect_my_access.py`. If the registered folder cannot be determined safely, ask the user for its path. Never reconstruct or improvise the collector.
+
+   In the workspace-only fallback, execute the resolved `collect_my_access.py` with the preinstalled Python environment and the same arguments. Do not install dependencies.
 6. Use `--sections` for a narrower run and `--max-objects` or `--max-depth` to bound discovery. Do not add mutating probes.
 
 ## Present the result

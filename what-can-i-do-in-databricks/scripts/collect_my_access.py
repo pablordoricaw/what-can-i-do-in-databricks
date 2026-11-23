@@ -7,13 +7,10 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import hashlib
 import importlib.metadata
-import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import time
@@ -24,6 +21,8 @@ from pathlib import Path
 from typing import Any
 
 from databricks.sdk import WorkspaceClient
+
+from reporting import write_report
 
 
 ALL_SECTIONS = (
@@ -160,6 +159,10 @@ class AccessCollector:
         self.spark = globals().get("spark")
         self.report_dir: Path | None = None
         self.workspace_id = self._workspace_id()
+        self.email_pattern = EMAIL
+        self.hash_value = hash_value
+        self.as_data = as_data
+        self.now_utc = lambda: datetime.now(UTC)
 
     def _runtime_label(self) -> str:
         if os.environ.get("UV_RUN_RECURSION_DEPTH"):
@@ -1145,213 +1148,6 @@ class AccessCollector:
                 return str(probe["outcome"])
         return "SKIPPED"
 
-    def _redact(self, value: Any, key: str = "") -> Any:
-        if not self.args.redact:
-            return value
-        if isinstance(value, dict):
-            return {
-                item_key: self._redact(item, str(item_key))
-                for item_key, item in value.items()
-            }
-        if isinstance(value, list):
-            return [self._redact(item, key) for item in value]
-        if not isinstance(value, str):
-            return value
-        lowered = key.lower()
-        if EMAIL.match(value) and value.lower() != self.current_username.lower():
-            return hash_value(value.lower())
-        if any(
-            marker in lowered
-            for marker in ("service_principal", "application_id", "client_id")
-        ):
-            return hash_value(value)
-        if self.args.redact_objects and any(
-            marker in lowered
-            for marker in (
-                "name",
-                "path",
-                "securable",
-                "object",
-                "catalog",
-                "schema",
-                "table",
-                "volume",
-                "routine",
-            )
-        ):
-            return hash_value(value)
-        return value
-
-    def _write_csv(self, path: Path, rows: list[dict[str, Any]]) -> None:
-        prepared = [self._csv_row(self._redact(as_data(row))) for row in rows]
-        fieldnames: list[str] = []
-        for row in prepared:
-            for key in row:
-                if key not in fieldnames:
-                    fieldnames.append(key)
-        if not fieldnames:
-            fieldnames = ["record_type"]
-        with path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(
-                handle, fieldnames=fieldnames, extrasaction="ignore"
-            )
-            writer.writeheader()
-            writer.writerows(prepared)
-
-    def _csv_row(self, row: dict[str, Any]) -> dict[str, Any]:
-        return {
-            key: json.dumps(value, sort_keys=True)
-            if isinstance(value, (dict, list))
-            else value
-            for key, value in row.items()
-        }
-
-    def _write_json(self, path: Path, rows: list[dict[str, Any]]) -> None:
-        with path.open("w", encoding="utf-8") as handle:
-            json.dump(
-                self._redact(as_data(rows)),
-                handle,
-                indent=2,
-                sort_keys=True,
-                ensure_ascii=False,
-            )
-            handle.write("\n")
-
-    def coverage(self, section: str) -> str:
-        if section not in self.args.sections:
-            return "skipped"
-        outcomes = [
-            probe["outcome"] for probe in self.probes if probe["section"] == section
-        ]
-        if not outcomes:
-            return "skipped"
-        if (
-            all(outcome == "ALLOWED" for outcome in outcomes)
-            and not self.section_notes[section]
-        ):
-            return "complete"
-        if all(outcome == "DENIED" for outcome in outcomes):
-            return "denied"
-        return "partial"
-
-    def _notable_findings(self) -> list[str]:
-        findings: list[str] = []
-        all_privileges = [
-            row
-            for row in self.effective_access
-            if "ALL PRIVILEGES" in str(row.get("permission", "")).upper()
-        ]
-        if all_privileges:
-            findings.append(
-                f"ALL PRIVILEGES appeared in {len(all_privileges)} effective-access rows."
-            )
-        entitlement_values = {
-            str(row.get("entitlement", "")).lower()
-            for row in self.sections["entitlements"]
-        }
-        if "allow-cluster-create" in entitlement_values:
-            findings.append("The current-user endpoint reports allow-cluster-create.")
-        no_expiry = [
-            row
-            for row in self.sections["credentials"]
-            if row.get("record_type") == "token_metadata" and not row.get("expiry_time")
-        ]
-        if no_expiry:
-            findings.append(f"{len(no_expiry)} visible token(s) have no expiry time.")
-        shared_manage = [
-            row
-            for row in self.sections["workspace"]
-            if str(row.get("path", "")).startswith("/Shared")
-            and "MANAGE" in str(row.get("permission_level", ""))
-        ]
-        if shared_manage:
-            findings.append(
-                f"The caller has a manage-level permission on {len(shared_manage)} visible /Shared object(s)."
-            )
-        if not findings:
-            findings.append(
-                "No predefined high-impact findings were detected in collected rows."
-            )
-        return findings
-
-    def write_report(self) -> tuple[Path, Path]:
-        if self.report_dir is None:
-            raise RuntimeError("Output directory was not initialized")
-        for section in ALL_SECTIONS:
-            self._write_csv(self.report_dir / f"{section}.csv", self.sections[section])
-            self._write_json(
-                self.report_dir / f"{section}.json", self.sections[section]
-            )
-        self._write_csv(
-            self.report_dir / "my_effective_access.csv", self.effective_access
-        )
-        self._write_csv(self.report_dir / "probe_log.csv", self.probes)
-        summary = self._summary_markdown()
-        (self.report_dir / "SUMMARY.md").write_text(summary, encoding="utf-8")
-        archive = Path(
-            shutil.make_archive(str(self.report_dir), "zip", root_dir=self.report_dir)
-        )
-        return self.report_dir, archive
-
-    def _summary_markdown(self) -> str:
-        finished = datetime.now(UTC)
-        lines = [
-            "# My Databricks effective access",
-            "",
-            "## Run metadata",
-            "",
-            f"- Started: `{self.started_at.isoformat()}`",
-            f"- Finished: `{finished.isoformat()}`",
-            f"- Workspace ID: `{self.workspace_id}`",
-            f"- Current user: `{self.current_username}`",
-            f"- Runtime: `{self.runtime}`",
-            f"- databricks-sdk: `{self.sdk_version}`",
-            f"- Redaction: `{'on' if self.args.redact else 'off'}`",
-            f"- Object-name redaction: `{'on' if self.args.redact_objects else 'off'}`",
-            "",
-        ]
-        if self.runtime == "preinstalled SDK":
-            lines.extend(
-                [
-                    "> This run used the Databricks runtime's preinstalled SDK without uv and installed nothing.",
-                    "",
-                ]
-            )
-        lines.extend(
-            [
-                "## Coverage",
-                "",
-                "| Section | Coverage | Rows | Notes |",
-                "|---|---:|---:|---|",
-            ]
-        )
-        for section in ALL_SECTIONS:
-            notes = " ".join(self.section_notes[section]).replace("|", "\\|")
-            lines.append(
-                f"| {section} | {self.coverage(section)} | {len(self.sections[section])} | {notes} |"
-            )
-        lines.extend(["", "## Notable findings", ""])
-        lines.extend(f"- {finding}" for finding in self._notable_findings())
-        lines.extend(
-            [
-                "",
-                "## Counts",
-                "",
-                f"- Probe calls: `{len(self.probes)}`",
-                f"- Effective-access rows: `{len(self.effective_access)}`",
-                f"- Groups discovered: `{len(self.groups)}`",
-                f"- Selected sections: `{','.join(self.args.sections)}`",
-                "",
-                "## What this report can't see",
-                "",
-                "This is a caller-scoped, non-admin report. It cannot prove that a hidden object, grant, group, product, or account-level setting does not exist. Results can omit nested or inherited groups, objects lacking browse permissions, grants requiring `MANAGE` or `READ METADATA`, other users' credentials, account-console configuration, and permissions that a product does not expose through its list or Permissions APIs. A successful list call proves reachability, not create or manage authority. A denied or unsupported probe is retained as evidence rather than treated as a failed run.",
-                "",
-                "Review the report and ZIP before sharing them outside your organization.",
-                "",
-            ]
-        )
-        return "\n".join(lines)
-
     def run(self) -> tuple[Path, Path]:
         self.bootstrap_identity()
         collectors: dict[str, Callable[[], None]] = {
@@ -1365,7 +1161,7 @@ class AccessCollector:
         }
         for section in self.args.sections:
             collectors[section]()
-        return self.write_report()
+        return write_report(self)
 
 
 def main() -> int:

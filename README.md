@@ -39,6 +39,16 @@ If Git-folder registration is unavailable, use the repository's `install.py` Dat
 
 The notebook copies the skill rather than moving it. Run it again after pulling repository updates to refresh the installed copy.
 
+## Troubleshooting Git-folder skills
+
+If Genie Code reports that `scripts/collect_my_access.py` is missing even though the Git folder contains it:
+
+1. Pull the latest `main` branch in the Databricks Git folder.
+2. Confirm that `what-can-i-do-in-databricks/scripts/collect_my_access.py` and `reporting.py` are visible in the workspace browser.
+3. Start a new Genie Code chat and hard-refresh the browser tab if cached skill metadata remains stale.
+
+The skill can fall back to the collector in the registered Git folder when Genie Code's packaged skill-resource mount omits it. It must use that source file rather than recreating the collector.
+
 ## Run the collector
 
 From the skill directory, verify `uv` and run:
