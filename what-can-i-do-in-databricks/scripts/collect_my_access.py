@@ -386,16 +386,18 @@ class AccessCollector:
         elif os.environ.get("DATABRICKS_RUNTIME_VERSION") or "/Workspace" in str(
             Path.cwd()
         ):
-            base = Path("/Workspace/Users") / self.current_username
+            base = (
+                Path("/Workspace/Users")
+                / self.current_username
+                / "what-can-i-do-in-databricks-results"
+            )
         else:
-            base = Path.cwd()
+            base = Path.cwd() / "what-can-i-do-in-databricks-results"
         timestamp = self.started_at.strftime("%Y%m%d_%H%M")
         user_hash = hashlib.sha256(self.current_username.encode("utf-8")).hexdigest()[
             :12
         ]
-        self.report_dir = (
-            base / "what_can_i_do" / f"{user_hash}_{self.workspace_id}_{timestamp}"
-        )
+        self.report_dir = base / f"{user_hash}_{self.workspace_id}_{timestamp}"
         self.report_dir.mkdir(parents=True, exist_ok=True)
 
     def ensure_warehouses(self, section: str) -> list[dict[str, Any]]:

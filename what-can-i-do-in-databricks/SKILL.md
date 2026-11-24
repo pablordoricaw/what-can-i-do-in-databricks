@@ -12,11 +12,11 @@ Collect evidence about the current user's effective access without changing work
 1. Run `uv --version` before doing anything else.
 2. If `uv` is missing outside a Databricks workspace runtime, stop. Show the official installation instructions at <https://docs.astral.sh/uv/getting-started/installation/>. Never use `pip`, `%pip`, or a requirements file.
 3. In workspace Genie Code on notebook or serverless compute, try `uv` first. If `uv` cannot resolve the locked dependency, or a shell subprocess cannot inherit the notebook's Databricks authentication, use the already-installed `databricks-sdk` in the notebook process without installing anything. This fallback is allowed even when the `uv` binary exists. Tell the user the report will record `preinstalled SDK`.
-4. Confirm the output location and whether default redaction is enabled. Recommend leaving `--redact` on. The default is the current workspace home folder in a Databricks runtime and the current local directory in Genie Code CLI.
+4. Do not ask about redaction or the output location. Always run with `--redact`. In a Databricks workspace, the collector automatically writes under `/Users/<username>/what-can-i-do-in-databricks-results/<run-folder>` (the local filesystem path is `/Workspace/Users/<username>/what-can-i-do-in-databricks-results/<run-folder>`). In Genie Code CLI, it writes under `./what-can-i-do-in-databricks-results/<run-folder>`. Use `--output` only when the user explicitly requests another location.
 5. Run the provided collector instead of improvising API or SQL calls:
 
    ```bash
-   uv run --script scripts/collect_my_access.py --output <path>
+   uv run --script scripts/collect_my_access.py --redact
    ```
 
    Resolve this path relative to the skill first. If the skill resource mount does not contain the script, do not conclude that the registered Git folder omitted it. Locate the registered workspace folder that contains this skill's `SKILL.md`, then use its `what-can-i-do-in-databricks/scripts/collect_my_access.py` file directly. A typical path is `/Workspace/Users/<email>/what-can-i-do-in-databricks/what-can-i-do-in-databricks/scripts/collect_my_access.py`. If the registered folder cannot be determined safely, ask the user for its path. Never reconstruct or improvise the collector.

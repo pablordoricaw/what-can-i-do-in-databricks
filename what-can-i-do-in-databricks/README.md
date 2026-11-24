@@ -50,8 +50,10 @@ The collector uses Databricks default authentication for the current user. Confi
 From the skill directory:
 
 ```bash
-uv run --script scripts/collect_my_access.py
+uv run --script scripts/collect_my_access.py --redact
 ```
+
+In a Databricks workspace, results are written to `/Users/<username>/what-can-i-do-in-databricks-results/<run-folder>`. The corresponding notebook filesystem path is `/Workspace/Users/<username>/what-can-i-do-in-databricks-results/<run-folder>`. Genie Code CLI writes to `./what-can-i-do-in-databricks-results/<run-folder>`.
 
 Common options:
 
