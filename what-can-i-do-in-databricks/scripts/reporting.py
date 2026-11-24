@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import shutil
 from collections import Counter, defaultdict
@@ -111,30 +110,6 @@ def _redact(collector: Any, value: Any, key: str = "") -> Any:
     ):
         return collector.hash_value(value)
     return value
-
-
-def _csv_row(row: dict[str, Any]) -> dict[str, Any]:
-    return {
-        key: json.dumps(value, sort_keys=True)
-        if isinstance(value, (dict, list))
-        else value
-        for key, value in row.items()
-    }
-
-
-def _write_csv(collector: Any, path: Path, rows: list[dict[str, Any]]) -> None:
-    prepared = [_csv_row(_redact(collector, collector.as_data(row))) for row in rows]
-    fieldnames: list[str] = []
-    for row in prepared:
-        for key in row:
-            if key not in fieldnames:
-                fieldnames.append(key)
-    if not fieldnames:
-        fieldnames = ["record_type"]
-    with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(prepared)
 
 
 def _write_json(collector: Any, path: Path, rows: list[dict[str, Any]]) -> None:
@@ -584,22 +559,17 @@ def write_report(collector: Any) -> tuple[Path, Path]:
     if collector.report_dir is None:
         raise RuntimeError("Output directory was not initialized")
     for section in ALL_SECTIONS:
-        _write_csv(
-            collector,
-            collector.report_dir / f"{section}.csv",
-            collector.sections[section],
-        )
         _write_json(
             collector,
             collector.report_dir / f"{section}.json",
             collector.sections[section],
         )
-    _write_csv(
+    _write_json(
         collector,
-        collector.report_dir / "my_effective_access.csv",
+        collector.report_dir / "my_effective_access.json",
         collector.effective_access,
     )
-    _write_csv(collector, collector.report_dir / "probe_log.csv", collector.probes)
+    _write_json(collector, collector.report_dir / "probe_log.json", collector.probes)
     (collector.report_dir / "SUMMARY.md").write_text(
         _summary_markdown(collector), encoding="utf-8"
     )

@@ -1,4 +1,4 @@
-import csv
+import json
 import tempfile
 import unittest
 import zipfile
@@ -37,8 +37,9 @@ class ReportRedactionTests(unittest.TestCase):
             with zipfile.ZipFile(archive) as bundle:
                 for name in bundle.namelist():
                     self.assertNotIn(private_name.encode(), bundle.read(name), name)
-            with (collector.report_dir / "probe_log.csv").open() as handle:
-                probe = next(csv.DictReader(handle))
+            probe = json.loads(
+                (collector.report_dir / "probe_log.json").read_text()
+            )[0]
             self.assertEqual(probe["outcome"], "DENIED")
             self.assertEqual(probe["http_or_error_code"], "403")
             self.assertEqual(probe["operation"], "list_workspace_path")
@@ -55,6 +56,6 @@ class ReportRedactionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             collector.report_dir = Path(directory)
             write_report(collector)
-            log = (collector.report_dir / "probe_log.csv").read_text()
+            log = (collector.report_dir / "probe_log.json").read_text()
             self.assertIn("SELECT * FROM catalog.schema.table", log)
             self.assertIn("Cannot read catalog.schema.table", log)

@@ -1,4 +1,3 @@
-import csv
 import json
 import tempfile
 import unittest
@@ -46,8 +45,9 @@ class UnityCatalogEffectiveAccessTests(unittest.TestCase):
                 with tempfile.TemporaryDirectory() as directory:
                     collector.report_dir = Path(directory)
                     write_report(collector)
-                    with (collector.report_dir / "my_effective_access.csv").open() as f:
-                        effective = list(csv.DictReader(f))
+                    effective = json.loads(
+                        (collector.report_dir / "my_effective_access.json").read_text()
+                    )
                     inventory = json.loads(
                         (collector.report_dir / "uc.json").read_text()
                     )
@@ -57,7 +57,7 @@ class UnityCatalogEffectiveAccessTests(unittest.TestCase):
                 )
                 for row in effective:
                     self.assertEqual(
-                        row["via_group"], str(row["granted_to"] == "engineering")
+                        row["via_group"], row["granted_to"] == "engineering"
                     )
                 record_types = {row["record_type"] for row in inventory}
                 self.assertEqual(len(record_types), 9)
