@@ -27,10 +27,11 @@ Collect evidence about the current user's effective access without changing work
 ## Present the result
 
 1. Open the generated `SUMMARY.md`.
-2. Show the user its coverage table and notable findings.
-3. Explain denied, unsupported, partial, and skipped areas without treating them as failures.
-4. Give the user the generated ZIP path.
-5. Remind the user to review the ZIP before sharing it outside their organization.
+2. Show the user its evidence-based capability summary, including roles, workspace object ACLs, group-derived access, and other access such as secret scopes and serverless policy assignments.
+3. Show the user its coverage table and notable findings.
+4. Explain denied, unsupported, partial, and skipped areas without treating them as failures.
+5. Give the user the generated ZIP path.
+6. Remind the user to review the ZIP before sharing it outside their organization.
 
 ## Invariants
 

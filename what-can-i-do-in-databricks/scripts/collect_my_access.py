@@ -557,6 +557,28 @@ class AccessCollector:
         )
 
     def collect_uc(self) -> None:
+        assignment = self.probe(
+            "uc",
+            "get_current_metastore_assignment",
+            "GET /api/2.1/unity-catalog/current-metastore-assignment",
+            lambda: as_data(self.client.metastores.current()),
+        )
+        if isinstance(assignment, dict):
+            self.sections["uc"].append(
+                {"record_type": "metastore_assignment", **assignment}
+            )
+            metastore_id = assignment.get("metastore_id")
+            if metastore_id:
+                details = self.probe(
+                    "uc",
+                    "get_current_metastore_details",
+                    f"GET /api/2.1/unity-catalog/metastores/{metastore_id}",
+                    lambda: as_data(self.client.metastores.get(str(metastore_id))),
+                )
+                if isinstance(details, dict):
+                    self.sections["uc"].append(
+                        {"record_type": "metastore_details", **details}
+                    )
         inventory_views = {
             "catalogs": "catalog_owner",
             "schemata": "schema_owner",

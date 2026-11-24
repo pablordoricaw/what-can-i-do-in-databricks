@@ -64,4 +64,4 @@ uv run --script scripts/collect_my_access.py \
   --redact
 ```
 
-Redaction is enabled by default. Use `--redact-objects` to hash object names as well. The collector writes a timestamped report directory and ZIP archive, including `SUMMARY.md`, per-section CSV and JSON files, `my_effective_access.csv`, and `probe_log.csv`.
+Redaction is enabled by default. Use `--redact-objects` to hash object names as well. The collector writes a timestamped report directory and ZIP archive, including an evidence-based `SUMMARY.md` organized by roles, workspace object ACLs, group inheritance, and other access; per-section CSV and JSON files; `my_effective_access.csv`; and `probe_log.csv`.

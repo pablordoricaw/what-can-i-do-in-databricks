@@ -16,6 +16,7 @@ The collector treats every surface as a probe. `ALLOWED` means the caller receiv
 
 ## Unity Catalog
 
+- Reads the current workspace's metastore assignment, then probes the admin-restricted metastore detail endpoint to distinguish demonstrated metastore-admin access from unknown or denied access.
 - Queries caller-filtered `system.information_schema` inventory and privilege views.
 - Queries `SHOW GRANTS <caller> ON CATALOG` for visible catalogs and samples schemas up to `--max-objects`.
 - Derives ownership only from objects returned to the caller and principals discovered for the caller.
@@ -31,6 +32,7 @@ The collector treats every surface as a probe. `ALLOWED` means the caller receiv
 
 - Lists the caller's home and `/Shared` to bounded depth, plus caller-visible Git folders, jobs, pipelines, queries, alerts, Lakeview dashboards, Genie spaces, Apps, experiments, registered models, serving endpoints, and vector-search endpoints.
 - Attempts a read-only Permissions API GET for each returned object type. Some products do not expose a compatible Permissions API to the caller and are recorded as denied or unsupported.
+- Summarizes serverless budget-policy and usage-policy IDs exposed on visible resources. It does not enumerate account-level policy definitions.
 
 ## Credentials
 
