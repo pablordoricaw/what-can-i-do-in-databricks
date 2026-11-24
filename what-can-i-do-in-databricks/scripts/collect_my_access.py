@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable, Iterable
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -160,7 +160,7 @@ class AccessCollector:
         self.client = WorkspaceClient()
         self.sdk_version = importlib.metadata.version("databricks-sdk")
         self.runtime = self._runtime_label()
-        self.started_at = datetime.now(UTC)
+        self.started_at = datetime.now(timezone.utc)
         self.probes: list[dict[str, Any]] = []
         self.sections: dict[str, list[dict[str, Any]]] = {
             section: [] for section in ALL_SECTIONS
@@ -182,7 +182,7 @@ class AccessCollector:
         self.email_pattern = EMAIL
         self.hash_value = hash_value
         self.as_data = as_data
-        self.now_utc = lambda: datetime.now(UTC)
+        self.now_utc = lambda: datetime.now(timezone.utc)
 
     def _runtime_label(self) -> str:
         if os.environ.get("UV_RUN_RECURSION_DEPTH"):
@@ -262,7 +262,7 @@ class AccessCollector:
                 result = action()
                 self.probes.append(
                     {
-                        "timestamp_utc": datetime.now(UTC).isoformat(),
+                        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
                         "section": section,
                         "operation": operation,
                         "endpoint_or_query": endpoint,
@@ -283,7 +283,7 @@ class AccessCollector:
                 outcome, code, message = self._error_details(error)
                 self.probes.append(
                     {
-                        "timestamp_utc": datetime.now(UTC).isoformat(),
+                        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
                         "section": section,
                         "operation": operation,
                         "endpoint_or_query": endpoint,
@@ -548,12 +548,14 @@ class AccessCollector:
             "GET /api/2.0/sql/warehouses",
             self.client.warehouses.list,
         )
+        outcome = self._latest_outcome("infer_warehouse_list_access")
         self.sections["entitlements"].append(
             {
                 "record_type": "inferred_capability",
                 "entitlement": "can_list_sql_warehouses",
-                "value": True,
-                "visible_count": len(warehouses or []),
+                "value": {"ALLOWED": True, "DENIED": False}.get(outcome),
+                "outcome": outcome,
+                "visible_count": len(warehouses) if warehouses is not None else None,
                 "source": "list_probe",
             }
         )
@@ -631,6 +633,8 @@ class AccessCollector:
             for row in rows or []:
                 self.sections["uc"].append({"record_type": view, **row})
                 grantee = str(row.get("grantee") or "")
+                if grantee not in principals:
+                    continue
                 self.effective_access.append(
                     {
                         "securable_type": view.removesuffix("_privileges").upper(),
@@ -697,12 +701,13 @@ class AccessCollector:
     def _record_show_grants(
         self, rows: list[dict[str, Any]], securable_type: str, securable_name: str
     ) -> None:
+        principals = {self.current_username, *self.groups}
         for row in rows:
             normalized = {str(key).lower(): value for key, value in row.items()}
             principal = str(
                 normalized.get("principal")
                 or normalized.get("grantee")
-                or self.current_username
+                or ""
             )
             permission = (
                 normalized.get("actiontype")
@@ -712,6 +717,8 @@ class AccessCollector:
             self.sections["uc"].append(
                 {"record_type": "show_grants", "scope": securable_name, **row}
             )
+            if principal not in principals:
+                continue
             self.effective_access.append(
                 {
                     "securable_type": securable_type,
@@ -1007,6 +1014,22 @@ class AccessCollector:
         for item in rows:
             resource_id = nested_get(item, id_key)
             name = nested_get(item, *name_keys) or resource_id
+            if resource_type == "registered_model" and not resource_id and name:
+                details = self.probe(
+                    "workspace",
+                    "get_registered_model_details",
+                    f"GET /api/2.0/mlflow/databricks/registered-models/get?name={name}",
+                    lambda name=name: as_data(
+                        self.client.model_registry.get_model(str(name))
+                    ),
+                )
+                resource_id = nested_get(
+                    details or {}, "registered_model_databricks.id"
+                )
+                if isinstance(details, dict) and not resource_id:
+                    self.section_notes["workspace"].append(
+                        "Registered-model ACL lookup was skipped: the detail response omitted its workspace ID."
+                    )
             permission = self.get_permissions(
                 "workspace", resource_type, resource_id, str(name)
             )
@@ -1076,7 +1099,18 @@ class AccessCollector:
             lambda: self.client.jobs.list(expand_tasks=True),
         )
         for job in jobs or []:
-            run_as = nested_get(job, "settings.run_as.user_name")
+            run_as = nested_get(job, "run_as_user_name", "settings.run_as.user_name")
+            if not run_as and job.get("job_id") is not None:
+                job_id = job["job_id"]
+                details = self.probe(
+                    "credentials",
+                    "get_job_for_run_as",
+                    f"GET /api/2.2/jobs/get?job_id={job_id}",
+                    lambda job_id=job_id: as_data(self.client.jobs.get(job_id)),
+                )
+                run_as = nested_get(
+                    details or {}, "run_as_user_name", "settings.run_as.user_name"
+                )
             if run_as == self.current_username:
                 self.sections["credentials"].append(
                     {
@@ -1161,9 +1195,7 @@ class AccessCollector:
                 {
                     "record_type": "feature_probe",
                     "feature": feature,
-                    "outcome": self._latest_outcome(f"feature_{feature}")
-                    if rows is not None
-                    else "SKIPPED",
+                    "outcome": self._latest_outcome(f"feature_{feature}"),
                     "sample_count": len(rows or []),
                 }
             )

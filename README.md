@@ -1,6 +1,6 @@
 # What Can I Do in Databricks?
 
-A shareable Genie Code skill for non-admin Databricks users to inventory their own effective access.
+A shareable Genie Code skill for Databricks users, including admins and non-admins, to inventory their own effective access.
 
 ## Requirements
 

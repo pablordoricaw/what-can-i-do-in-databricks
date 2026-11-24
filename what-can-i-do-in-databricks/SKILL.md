@@ -1,11 +1,11 @@
 ---
 name: what-can-i-do-in-databricks
-description: Create a read-only report of a non-admin Databricks user's own accessible data, privileges, compute, workspace objects, permissions, and product capabilities for review with their Databricks account team.
+description: Create a read-only report of the current Databricks user's accessible data, privileges, compute, workspace objects, permissions, and product capabilities for review with their Databricks account team.
 ---
 
 # What Can I Do in Databricks?
 
-Collect evidence about the current user's effective access without changing workspace state. Assume the caller is not an account, workspace, or metastore administrator and has no `MANAGE` or `READ METADATA` unless a probe demonstrates otherwise.
+Collect evidence about the current user's effective access without changing workspace state. Support both admin and non-admin callers. Determine roles and privileges, including `MANAGE` and `READ METADATA`, from probe evidence; report unverified access as unknown.
 
 ## Run the collector
 
@@ -39,4 +39,4 @@ Collect evidence about the current user's effective access without changing work
 - Never create, update, delete, grant, revoke, start compute, run jobs, or retrieve secret, token, or credential values.
 - Authenticate as the caller with Databricks default authentication. Do not introduce service principals or secrets.
 - If no already-running SQL warehouse or in-process Spark session is available, allow API-only collection and report SQL coverage as skipped.
-- Read [`references/what_non_admins_can_see.md`](references/what_non_admins_can_see.md) when interpreting probe outcomes or extending coverage.
+- Read [`references/what_users_can_see.md`](references/what_users_can_see.md) when interpreting probe outcomes or extending coverage.

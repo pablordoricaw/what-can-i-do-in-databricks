@@ -88,6 +88,13 @@ def _redact(collector: Any, value: Any, key: str = "") -> Any:
         for marker in ("service_principal", "application_id", "client_id")
     ):
         return collector.hash_value(value)
+    if collector.args.redact_objects and lowered in {
+        "endpoint_or_query",
+        "error_message",
+        "notes",
+    }:
+        # Free text can embed object names in URLs, SQL, or exception messages.
+        return collector.hash_value(value) if value else value
     if collector.args.redact_objects and any(
         marker in lowered
         for marker in (
@@ -171,7 +178,7 @@ def _notable_findings(collector: Any) -> list[str]:
         findings.append(
             "The caller belongs to an admin-signaling group: "
             + ", ".join(admin_groups)
-            + ". This run is not a non-admin baseline."
+            + "."
         )
     all_privileges = [
         row
@@ -309,10 +316,9 @@ def _role_lines(collector: Any) -> list[str]:
         "| Role | Status | Evidence |",
         "|---|---|---|",
     ]
-    lines.extend(
-        f"| {role} | {status} | {evidence.replace('|', '\\|')} |"
-        for role, status, evidence in roles
-    )
+    for role, status, evidence in roles:
+        escaped_evidence = evidence.replace("|", "\\|")
+        lines.append(f"| {role} | {status} | {escaped_evidence} |")
     return lines
 
 
@@ -545,7 +551,9 @@ def _summary_markdown(collector: Any) -> str:
         ]
     )
     for section in ALL_SECTIONS:
-        notes = " ".join(collector.section_notes[section]).replace("|", "\\|")
+        notes = _redact(
+            collector, " ".join(collector.section_notes[section]), "notes"
+        ).replace("|", "\\|")
         lines.append(
             f"| {section} | {_coverage(collector, section)} | {len(collector.sections[section])} | {notes} |"
         )
@@ -563,7 +571,7 @@ def _summary_markdown(collector: Any) -> str:
             "",
             "## What this report can't see",
             "",
-            "This is a caller-scoped report designed for non-admin users. If an admin-signaling group appears in the findings, the results reflect that elevated identity and are not a non-admin baseline. The report cannot prove that a hidden object, grant, group, product, or account-level setting does not exist. Results can omit nested or inherited groups, objects lacking browse permissions, grants requiring `MANAGE` or `READ METADATA`, other users' credentials, account-console configuration, and permissions that a product does not expose through its list or Permissions APIs. A successful list call proves reachability, not create or manage authority. A denied or unsupported probe is retained as evidence rather than treated as a failed run.",
+            "This caller-scoped report reflects the current user's effective access, including any administrative privileges demonstrated by the collected evidence. The report cannot prove that a hidden object, grant, group, product, or account-level setting does not exist. Results can omit nested or inherited groups, objects lacking browse permissions, grants requiring `MANAGE` or `READ METADATA`, other users' credentials, account-console configuration, and permissions that a product does not expose through its list or Permissions APIs. A successful list call proves reachability, not create or manage authority. A denied or unsupported probe is retained as evidence rather than treated as a failed run.",
             "",
             "Review the report and ZIP before sharing them outside your organization.",
             "",

@@ -1,6 +1,6 @@
 # What Can I Do in Databricks?
 
-This agent skill creates a read-only report of the data, compute, workspace objects, permissions, credentials metadata, and Databricks features visible to the current non-admin user. No administrator role is required. Review the report before sharing it with your Databricks account team or outside your organization.
+This agent skill creates a read-only report of the data, compute, workspace objects, permissions, credentials metadata, and Databricks features visible to the current user, whether an admin or a non-admin. No administrator role is required. Review the report before sharing it with your Databricks account team or outside your organization.
 
 ## Requirements
 
@@ -67,3 +67,5 @@ uv run --script scripts/collect_my_access.py \
 ```
 
 Redaction is enabled by default. Use `--redact-objects` to hash object names as well. The collector writes a timestamped report directory and ZIP archive, including an evidence-based `SUMMARY.md` organized by roles, workspace object ACLs, group inheritance, and other access; per-section CSV and JSON files; `my_effective_access.csv`; and `probe_log.csv`.
+
+With `--redact-objects`, probe URLs and SQL, error messages, and coverage notes are hashed because they can contain object names. Probe operations, outcomes, and error codes remain readable.

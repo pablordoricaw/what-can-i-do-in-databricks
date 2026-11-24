@@ -1,4 +1,4 @@
-# What non-admin users can see
+# What users can see
 
 The collector treats every surface as a probe. `ALLOWED` means the caller received a result, including an empty result. `DENIED` means the caller lacked permission. `NOT_SUPPORTED` means the API or SQL object is unavailable. `ERROR` means another failure occurred. Empty or denied results are not evidence that an object or feature does not exist for other users.
 
@@ -7,7 +7,7 @@ The collector treats every surface as a probe. `ALLOWED` means the caller receiv
 - Uses the Databricks SDK current-user endpoint first to obtain the caller's SCIM identity, groups, and entitlements.
 - If group values are absent, lists workspace-visible groups and checks membership values returned to the caller.
 - Uses `current_user()` and `is_account_group_member()` when an already-running SQL warehouse or in-process Spark session is available.
-- Nested, inherited, `users`, and `account users` membership may not be fully visible to non-admin callers.
+- Nested, inherited, `users`, and `account users` membership may not be fully visible with the caller's permissions.
 
 ## Entitlements
 
@@ -20,7 +20,7 @@ The collector treats every surface as a probe. `ALLOWED` means the caller receiv
 - Queries caller-filtered `system.information_schema` inventory and privilege views.
 - Queries `SHOW GRANTS <caller> ON CATALOG` for visible catalogs and samples schemas up to `--max-objects`.
 - Derives ownership only from objects returned to the caller and principals discovered for the caller.
-- Non-admin results can omit objects, grants, nested group effects, or metadata the caller cannot browse. `READ METADATA` and `MANAGE` are never assumed.
+- Results can omit objects, grants, nested group effects, or metadata the caller cannot browse. `READ METADATA` and `MANAGE` are established from probe evidence.
 
 ## Compute
 
@@ -37,7 +37,7 @@ The collector treats every surface as a probe. `ALLOWED` means the caller receiv
 ## Credentials
 
 - Lists only the caller's token metadata: identifier, creation time, expiry time, and comment. Token values are never requested or written.
-- Lists visible secret-scope names and attempts to list ACLs. Non-admin ACL reads are commonly denied. Secret values are never requested.
+- Lists visible secret-scope names and attempts to list ACLs, recording denied reads when the caller lacks permission. Secret values are never requested.
 - Lists jobs and pipelines whose visible run-as identity matches the caller. Hidden jobs and pipelines remain unknowable.
 
 ## Features
